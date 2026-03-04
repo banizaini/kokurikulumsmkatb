@@ -38,8 +38,7 @@
 
     <div id="unitMenuContainer" class="hidden max-w-5xl mx-auto mb-8 text-center">
         <h3 class="text-yellow-500 font-bold mb-4 tracking-widest uppercase">Pilih Unit Untuk Paparan:</h3>
-        <div id="unitMenu" class="flex flex-wrap justify-center gap-3">
-            </div>
+        <div id="unitMenu" class="flex flex-wrap justify-center gap-3"></div>
     </div>
 
     <div id="loading" class="hidden text-center mb-5">
@@ -67,6 +66,19 @@
     </div>
 
     <script>
+        // ==========================================
+        // KONFIGURASI LAJUR (KOLUM) GOOGLE SHEET
+        // ==========================================
+        // Tukar nombor di bawah mengikut susunan dalam Sheet anda.
+        // Bermula dengan 0. (A=0, B=1, C=2, D=3, E=4, dan seterusnya)
+        
+        const KOLUM_NAMA = 0;   // Jika Nama di Lajur A, biarkan 0. Jika di Lajur B, tukar jadi 1
+        const KOLUM_KELAS = 1;  // Jika Kelas di Lajur B, biarkan 1. Jika di Lajur C, tukar jadi 2
+        const KOLUM_UNIT = 2;   // Jika Unit di Lajur C, biarkan 2. Jika di Lajur D, tukar jadi 3
+        
+        const BARIS_MULA = 1;   // Jika baris pertama (Row 1) adalah Tajuk, biarkan 1. Jika terus nama murid, letak 0.
+        // ==========================================
+
         const SHEET_LINKS = {
             'Beruniform': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR5qD2LhAVY_gkp21qV6VZ8CG4WjcmTDOlJ10Cj1TbuVl3PHsSYhlmBskPY2TU3KA/pub?output=csv',
             'Kelab': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9WaQcM0HKQYoTF4gUYBn2OZyGTWEEpVXOWCF1SFLmh7rbdA52JYcoY3fF-HyYfg/pub?output=csv',
@@ -74,7 +86,6 @@
             'RumahSukan': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSoP03gP_u4CstSfD8NCpBMeAhbEMFhyJMYe0nTFGyWZfwfOA9myf-eq45T9AcEZnyEsa-eOFMjm1O2/pub?output=csv'
         };
 
-        // Pembolehubah untuk simpan data sementara supaya tak perlu download berulang kali
         let currentSheetData = []; 
 
         function fetchData(category) {
@@ -96,17 +107,16 @@
                 complete: function(results) {
                     currentSheetData = results.data;
                     
-                    if(currentSheetData.length <= 1) { // Jika tiada data selain tajuk
-                        tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-red-400">Tiada rekod dijumpai dalam sistem.</td></tr>';
+                    if(currentSheetData.length <= BARIS_MULA) {
+                        tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-red-400">Fail dapat dibaca, tetapi tiada rekod murid dijumpai.</td></tr>';
                         loading.classList.add('hidden');
                         return;
                     }
 
-                    // 1. Dapatkan senarai unit yang unik dari lajur ke-3 (Indeks 2)
                     let uniqueUnits = [];
-                    // Mula dari i=1 untuk skip baris tajuk (Header)
-                    for(let i = 1; i < currentSheetData.length; i++) {
-                        let unitName = currentSheetData[i][2];
+                    for(let i = BARIS_MULA; i < currentSheetData.length; i++) {
+                        // Menggunakan konfigurasi kolum unit
+                        let unitName = currentSheetData[i][KOLUM_UNIT];
                         if(unitName) {
                             unitName = unitName.trim().toUpperCase();
                             if(!uniqueUnits.includes(unitName) && unitName !== "") {
@@ -115,12 +125,71 @@
                         }
                     }
 
-                    // Susun nama unit mengikut abjad
+                    // Jika gagal jumpa mana-mana unit
+                    if(uniqueUnits.length === 0) {
+                        tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center">
+                            <span class="text-red-500 font-bold block mb-2">RALAT: Tiada nama unit dijumpai!</span>
+                            <span class="text-gray-300 text-sm">Sistem mencari nama unit di Kolum ${KOLUM_UNIT + 1}, tetapi ia nampak kosong. Sila semak konfigurasi kolum dalam kod HTML.</span>
+                        </td></tr>`;
+                        loading.classList.add('hidden');
+                        return;
+                    }
+
                     uniqueUnits.sort();
 
-                    // 2. Bina butang untuk setiap unit
                     let menuHtml = '';
                     uniqueUnits.forEach(unit => {
-                        // Ganti ruang kosong dengan underscore untuk kegunaan ID butang
-                        let safeId = unit.replace(/\s+/g, '_'); 
-                        menuHtml
+                        // Membuang watak istimewa untuk dijadikan ID butang yang sah
+                        let safeId = unit.replace(/[^a-zA-Z0-9]/g, '_'); 
+                        menuHtml += `<button id="btn_${safeId}" onclick="showUnitData('${unit.replace(/'/g, "\\'")}', 'btn_${safeId}')" 
+                                     class="unit-btn px-5 py-2 rounded-full border border-yellow-500 text-yellow-500 font-bold uppercase text-sm cursor-pointer shadow-md hover:shadow-lg">
+                                     ${unit}
+                                     </button>`;
+                    });
+
+                    unitMenu.innerHTML = menuHtml;
+                    unitMenuContainer.classList.remove('hidden');
+                    loading.classList.add('hidden');
+                    
+                    tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-yellow-500 font-bold tracking-widest uppercase">Sila klik pada mana-mana butang unit di atas.</td></tr>';
+                },
+                error: function(error) {
+                    tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-500 font-bold">Ralat membaca fail: ${error.message}</td></tr>`;
+                    loading.classList.add('hidden');
+                }
+            });
+        }
+
+        function showUnitData(selectedUnit, buttonId) {
+            const tableBody = document.getElementById('tableBody');
+            let html = '';
+            let counter = 1;
+
+            document.querySelectorAll('.unit-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(buttonId).classList.add('active');
+
+            for(let i = BARIS_MULA; i < currentSheetData.length; i++) {
+                const row = currentSheetData[i];
+                let unit = row[KOLUM_UNIT] ? row[KOLUM_UNIT].trim().toUpperCase() : '';
+
+                if(unit === selectedUnit) {
+                    const nama = row[KOLUM_NAMA] ? row[KOLUM_NAMA] : '-';
+                    const kelas = row[KOLUM_KELAS] ? row[KOLUM_KELAS] : '-';
+
+                    html += `
+                        <tr class="border-b border-gray-700 hover:bg-yellow-500/20 transition duration-150">
+                            <td class="p-4 font-mono text-yellow-500 text-center">${counter}</td>
+                            <td class="p-4 font-black uppercase text-white">${nama}</td>
+                            <td class="p-4 text-gray-300 text-center">${kelas}</td>
+                            <td class="p-4 text-center"><span class="bg-gray-800 px-3 py-1 rounded text-yellow-400 border border-yellow-500/50 uppercase text-xs tracking-wider">${unit}</span></td>
+                        </tr>
+                    `;
+                    counter++;
+                }
+            }
+
+            tableBody.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
