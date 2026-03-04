@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Semakan Kokurikulum SMKATB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Roboto:wght@400;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Roboto', sans-serif; background: #0f172a; color: white; }
+        .poster-font { font-family: 'Oswald', sans-serif; text-transform: uppercase; }
+        .btn-gradient { background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%); transition: 0.3s; }
+        .btn-gradient:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(217, 119, 6, 0.4); }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        .table-header { background: #f59e0b; color: #000; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
+
+    <div class="text-center mb-12 border-b-4 border-yellow-500 pb-6 inline-block w-full">
+        <h1 class="poster-font text-5xl md:text-7xl italic font-black text-white tracking-tighter">
+            SEMAKAN AHLI <span class="text-yellow-500 text-shadow-xl">KOKURIKULUM</span>
+        </h1>
+        <p class="text-lg tracking-[0.5em] font-light mt-2 opacity-80 uppercase">SMKA Tok Bachok • Sesi 2026</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <button onclick="fetchData('Beruniform')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🛡️ Badan Beruniform</button>
+        <button onclick="fetchData('Kelab')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🧠 Kelab & Persatuan</button>
+        <button onclick="fetchData('Sukan')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">⚽ Sukan & Permainan</button>
+        <button onclick="fetchData('RumahSukan')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🏠 Rumah Sukan</button>
+    </div>
+
+    <div class="max-w-2xl mx-auto mb-10 relative">
+        <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="MASUKKAN NAMA MURID UNTUK CARIAN PANTAS..." 
+               class="w-full p-5 rounded-lg bg-white text-black text-lg font-bold focus:ring-4 focus:ring-yellow-500 outline-none uppercase shadow-2xl">
+        <div class="absolute right-4 top-5 text-gray-400">🔍</div>
+    </div>
+
+    <div id="loading" class="hidden text-center mb-5">
+        <div class="inline-block p-3 bg-yellow-500 text-black font-bold animate-bounce rounded">MEMUATKAN DATA...</div>
+    </div>
+
+    <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left" id="memberTable">
+                <thead>
+                    <tr class="table-header poster-font text-lg italic">
+                        <th class="p-4">BIL</th>
+                        <th class="p-4">NAMA PENUH</th>
+                        <th class="p-4">KELAS</th>
+                        <th class="p-4">KUMPULAN / UNIT</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" class="text-gray-100 italic">
+                    <tr>
+                        <td colspan="4" class="p-10 text-center opacity-50">Sila pilih kategori di atas untuk melihat senarai ahli.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Mapping link Google Sheet kepada kategori
+        const SHEET_LINKS = {
+            'Beruniform': '1sowfBXCbQ163i-OPLvopBLysm1t-ANlt',
+            'Kelab': '1MVj955fxdjvFGhhdYBBfzgvk_BrsUje4',
+            'Sukan': '1wOngVenauaoR61ntMAOBXa6vqcMUgGo2',
+            'RumahSukan': '1YibuXNDPDVAM3v6-xDtCsOaTHlRFTKfxLl7PGo5m-5U'
+        };
+
+        async function fetchData(category) {
+            const loading = document.getElementById('loading');
+            const tableBody = document.getElementById('tableBody');
+            
+            loading.classList.remove('hidden');
+            tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center">Sedang memproses data dari pangkalan data...</td></tr>';
+
+            const sheetId = SHEET_LINKS[category];
+            // Menggunakan tab pertama (gid=0) secara default
+            const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+
+            try {
+                const response = await fetch(url);
+                const text = await response.text();
+                // Membuang prefix JSON Google yang tidak diperlukan
+                const json = JSON.parse(text.substr(47).slice(0, -2));
+                const rows = json.table.rows;
+
+                let html = '';
+                // Mula dari row 0 (Jika sheet anda ada header, tukar row.slice(1))
+                rows.forEach((row, index) => {
+                    const nama = row.c[0] ? row.c[0].v : '-';
+                    const kelas = row.c[1] ? row.c[1].v : '-';
+                    const unit = row.c[2] ? row.c[2].v : '-';
+
+                    html += `
+                        <tr class="border-b border-gray-700 hover:bg-yellow-500/10 transition duration-150">
+                            <td class="p-4 font-mono text-yellow-500">${index + 1}</td>
+                            <td class="p-4 font-black uppercase">${nama}</td>
+                            <td class="p-4">${kelas}</td>
+                            <td class="p-4"><span class="bg-gray-800 px-3 py-1 rounded text-yellow-400 border border-yellow-500/50">${unit}</span></td>
+                        </tr>
+                    `;
+                });
+
+                tableBody.innerHTML = html;
+            } catch (error) {
+                tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-red-500 font-bold">RALAT: Pastikan fail Google Sheet telah di-set kepada "Public/Anyone with link".</td></tr>';
+                console.error("Error:", error);
+            }
+            loading.classList.add('hidden');
+        }
+
+        function filterTable() {
+            let input = document.getElementById("searchInput").value.toUpperCase();
+            let tr = document.getElementById("tableBody").getElementsByTagName("tr");
+            for (let i =
