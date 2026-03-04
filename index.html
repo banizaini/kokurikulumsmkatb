@@ -15,48 +15,51 @@
         .btn-gradient:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(217, 119, 6, 0.4); }
         .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
         .table-header { background: #f59e0b; color: #000; }
+        .unit-btn { transition: all 0.2s ease-in-out; }
+        .unit-btn:hover { background-color: #f59e0b; color: black; border-color: #f59e0b; transform: scale(1.05); }
+        .unit-btn.active { background-color: #f59e0b; color: black; border-color: #f59e0b; }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
 
-    <div class="text-center mb-12 border-b-4 border-yellow-500 pb-6 inline-block w-full">
+    <div class="text-center mb-10 border-b-4 border-yellow-500 pb-6 inline-block w-full">
         <h1 class="poster-font text-5xl md:text-7xl italic font-black text-white tracking-tighter">
             SEMAKAN AHLI <span class="text-yellow-500 text-shadow-xl">KOKURIKULUM</span>
         </h1>
         <p class="text-lg tracking-[0.5em] font-light mt-2 opacity-80 uppercase">Sesi 2026</p>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <button onclick="fetchData('Beruniform')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🛡️ Badan Beruniform</button>
         <button onclick="fetchData('Kelab')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🧠 Kelab & Persatuan</button>
         <button onclick="fetchData('Sukan')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">⚽ Sukan & Permainan</button>
         <button onclick="fetchData('RumahSukan')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🏠 Rumah Sukan</button>
     </div>
 
-    <div class="max-w-2xl mx-auto mb-10 relative">
-        <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="MASUKKAN NAMA MURID UNTUK CARIAN PANTAS..." 
-               class="w-full p-5 rounded-lg bg-white text-black text-lg font-bold focus:ring-4 focus:ring-yellow-500 outline-none uppercase shadow-2xl">
-        <div class="absolute right-4 top-5 text-gray-400">🔍</div>
+    <div id="unitMenuContainer" class="hidden max-w-5xl mx-auto mb-8 text-center">
+        <h3 class="text-yellow-500 font-bold mb-4 tracking-widest uppercase">Pilih Unit Untuk Paparan:</h3>
+        <div id="unitMenu" class="flex flex-wrap justify-center gap-3">
+            </div>
     </div>
 
     <div id="loading" class="hidden text-center mb-5">
         <div class="inline-block p-3 bg-yellow-500 text-black font-bold animate-pulse rounded">MEMUATKAN DATA...</div>
     </div>
 
-    <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl">
+    <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl max-w-6xl mx-auto">
         <div class="overflow-x-auto">
             <table class="w-full text-left" id="memberTable">
                 <thead>
                     <tr class="table-header poster-font text-lg italic">
-                        <th class="p-4">BIL</th>
+                        <th class="p-4 w-16 text-center">BIL</th>
                         <th class="p-4">NAMA PENUH</th>
-                        <th class="p-4">KELAS</th>
-                        <th class="p-4">KUMPULAN / UNIT</th>
+                        <th class="p-4 w-32 text-center">KELAS</th>
+                        <th class="p-4 w-48 text-center">UNIT</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody" class="text-gray-100 italic">
                     <tr>
-                        <td colspan="4" class="p-10 text-center opacity-50">Sila pilih kategori di atas untuk melihat senarai ahli.</td>
+                        <td colspan="4" class="p-10 text-center opacity-50 font-bold tracking-widest">SILA PILIH KATEGORI DI ATAS</td>
                     </tr>
                 </tbody>
             </table>
@@ -64,79 +67,60 @@
     </div>
 
     <script>
-        // Link CSV dari Google Sheets yang telah dikemaskini
         const SHEET_LINKS = {
             'Beruniform': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR5qD2LhAVY_gkp21qV6VZ8CG4WjcmTDOlJ10Cj1TbuVl3PHsSYhlmBskPY2TU3KA/pub?output=csv',
             'Kelab': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9WaQcM0HKQYoTF4gUYBn2OZyGTWEEpVXOWCF1SFLmh7rbdA52JYcoY3fF-HyYfg/pub?output=csv',
-            // Perhatikan hujung link Sukan ditukar dari pubhtml kepada pub?output=csv supaya seragam
             'Sukan': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSE062ycwmtzTnXqs57QGb_QH3C8EsFFGs3VbrpBapaNk_H5E2g6jsveBoSMrhIXg/pub?output=csv',
             'RumahSukan': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSoP03gP_u4CstSfD8NCpBMeAhbEMFhyJMYe0nTFGyWZfwfOA9myf-eq45T9AcEZnyEsa-eOFMjm1O2/pub?output=csv'
         };
 
+        // Pembolehubah untuk simpan data sementara supaya tak perlu download berulang kali
+        let currentSheetData = []; 
+
         function fetchData(category) {
             const loading = document.getElementById('loading');
             const tableBody = document.getElementById('tableBody');
+            const unitMenuContainer = document.getElementById('unitMenuContainer');
+            const unitMenu = document.getElementById('unitMenu');
             
             loading.classList.remove('hidden');
-            tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-yellow-400">Sedang menyusun data...</td></tr>';
+            unitMenuContainer.classList.add('hidden');
+            tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-yellow-400">Sedang menyusun senarai...</td></tr>';
 
             const csvUrl = SHEET_LINKS[category];
 
-            // Menggunakan PapaParse untuk baca CSV
             Papa.parse(csvUrl, {
                 download: true,
-                header: false, // Membaca data mengikut indeks lajur (0, 1, 2)
+                header: false,
                 skipEmptyLines: true,
                 complete: function(results) {
-                    const data = results.data;
+                    currentSheetData = results.data;
                     
-                    if(data.length === 0) {
-                        tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-red-400">Tiada rekod dijumpai.</td></tr>';
+                    if(currentSheetData.length <= 1) { // Jika tiada data selain tajuk
+                        tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-red-400">Tiada rekod dijumpai dalam sistem.</td></tr>';
                         loading.classList.add('hidden');
                         return;
                     }
 
-                    let html = '';
-                    
-                    // Kita mula dari indeks 1 (menganggap baris 0 adalah tajuk/header di dalam Google Sheet)
-                    // Jika tiada header di dalam sheet, tukar 'let i = 1' kepada 'let i = 0'
-                    for(let i = 1; i < data.length; i++) {
-                        const row = data[i];
-                        const nama = row[0] ? row[0] : '-';
-                        const kelas = row[1] ? row[1] : '-';
-                        const unit = row[2] ? row[2] : '-';
-
-                        html += `
-                            <tr class="border-b border-gray-700 hover:bg-yellow-500/10 transition duration-150">
-                                <td class="p-4 font-mono text-yellow-500">${i}</td>
-                                <td class="p-4 font-black uppercase text-white">${nama}</td>
-                                <td class="p-4 text-gray-300">${kelas}</td>
-                                <td class="p-4"><span class="bg-gray-800 px-3 py-1 rounded text-yellow-400 border border-yellow-500/50 uppercase text-xs">${unit}</span></td>
-                            </tr>
-                        `;
+                    // 1. Dapatkan senarai unit yang unik dari lajur ke-3 (Indeks 2)
+                    let uniqueUnits = [];
+                    // Mula dari i=1 untuk skip baris tajuk (Header)
+                    for(let i = 1; i < currentSheetData.length; i++) {
+                        let unitName = currentSheetData[i][2];
+                        if(unitName) {
+                            unitName = unitName.trim().toUpperCase();
+                            if(!uniqueUnits.includes(unitName) && unitName !== "") {
+                                uniqueUnits.push(unitName);
+                            }
+                        }
                     }
 
-                    tableBody.innerHTML = html;
-                    loading.classList.add('hidden');
-                },
-                error: function(error) {
-                    tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-500 font-bold">Ralat membaca fail: ${error.message}</td></tr>`;
-                    loading.classList.add('hidden');
-                }
-            });
-        }
+                    // Susun nama unit mengikut abjad
+                    uniqueUnits.sort();
 
-        function filterTable() {
-            let input = document.getElementById("searchInput").value.toUpperCase();
-            let tr = document.getElementById("tableBody").getElementsByTagName("tr");
-            for (let i = 0; i < tr.length; i++) {
-                let td = tr[i].getElementsByTagName("td")[1]; // Mencari dalam lajur Nama (Indeks 1)
-                if (td) {
-                    let textValue = td.textContent || td.innerText;
-                    tr[i].style.display = textValue.toUpperCase().indexOf(input) > -1 ? "" : "none";
-                }
-            }
-        }
-    </script>
-</body>
-</html>
+                    // 2. Bina butang untuk setiap unit
+                    let menuHtml = '';
+                    uniqueUnits.forEach(unit => {
+                        // Ganti ruang kosong dengan underscore untuk kegunaan ID butang
+                        let safeId = unit.replace(/\s+/g, '_'); 
+                        menuHtml
