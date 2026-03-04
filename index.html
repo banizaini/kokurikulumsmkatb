@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Semakan Kokurikulum SMKATB</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Roboto:wght@400;900&display=swap" rel="stylesheet">
+    
     <style>
         body { font-family: 'Roboto', sans-serif; background: #0f172a; color: white; }
         .poster-font { font-family: 'Oswald', sans-serif; text-transform: uppercase; }
@@ -21,7 +23,7 @@
         <h1 class="poster-font text-5xl md:text-7xl italic font-black text-white tracking-tighter">
             SEMAKAN AHLI <span class="text-yellow-500 text-shadow-xl">KOKURIKULUM</span>
         </h1>
-        <p class="text-lg tracking-[0.5em] font-light mt-2 opacity-80 uppercase">SMKA Tok Bachok • Sesi 2026</p>
+        <p class="text-lg tracking-[0.5em] font-light mt-2 opacity-80 uppercase">Sesi 2026</p>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
@@ -38,7 +40,7 @@
     </div>
 
     <div id="loading" class="hidden text-center mb-5">
-        <div class="inline-block p-3 bg-yellow-500 text-black font-bold animate-bounce rounded">MEMUATKAN DATA...</div>
+        <div class="inline-block p-3 bg-yellow-500 text-black font-bold animate-pulse rounded">MEMUATKAN DATA...</div>
     </div>
 
     <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl">
@@ -62,58 +64,79 @@
     </div>
 
     <script>
-        // Mapping link Google Sheet kepada kategori
+        // Link CSV dari Google Sheets yang telah dikemaskini
         const SHEET_LINKS = {
-            'Beruniform': '1sowfBXCbQ163i-OPLvopBLysm1t-ANlt',
-            'Kelab': '1MVj955fxdjvFGhhdYBBfzgvk_BrsUje4',
-            'Sukan': '1wOngVenauaoR61ntMAOBXa6vqcMUgGo2',
-            'RumahSukan': '1YibuXNDPDVAM3v6-xDtCsOaTHlRFTKfxLl7PGo5m-5U'
+            'Beruniform': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR5qD2LhAVY_gkp21qV6VZ8CG4WjcmTDOlJ10Cj1TbuVl3PHsSYhlmBskPY2TU3KA/pub?output=csv',
+            'Kelab': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9WaQcM0HKQYoTF4gUYBn2OZyGTWEEpVXOWCF1SFLmh7rbdA52JYcoY3fF-HyYfg/pub?output=csv',
+            // Perhatikan hujung link Sukan ditukar dari pubhtml kepada pub?output=csv supaya seragam
+            'Sukan': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSE062ycwmtzTnXqs57QGb_QH3C8EsFFGs3VbrpBapaNk_H5E2g6jsveBoSMrhIXg/pub?output=csv',
+            'RumahSukan': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSoP03gP_u4CstSfD8NCpBMeAhbEMFhyJMYe0nTFGyWZfwfOA9myf-eq45T9AcEZnyEsa-eOFMjm1O2/pub?output=csv'
         };
 
-        async function fetchData(category) {
+        function fetchData(category) {
             const loading = document.getElementById('loading');
             const tableBody = document.getElementById('tableBody');
             
             loading.classList.remove('hidden');
-            tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center">Sedang memproses data dari pangkalan data...</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-yellow-400">Sedang menyusun data...</td></tr>';
 
-            const sheetId = SHEET_LINKS[category];
-            // Menggunakan tab pertama (gid=0) secara default
-            const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+            const csvUrl = SHEET_LINKS[category];
 
-            try {
-                const response = await fetch(url);
-                const text = await response.text();
-                // Membuang prefix JSON Google yang tidak diperlukan
-                const json = JSON.parse(text.substr(47).slice(0, -2));
-                const rows = json.table.rows;
+            // Menggunakan PapaParse untuk baca CSV
+            Papa.parse(csvUrl, {
+                download: true,
+                header: false, // Membaca data mengikut indeks lajur (0, 1, 2)
+                skipEmptyLines: true,
+                complete: function(results) {
+                    const data = results.data;
+                    
+                    if(data.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-red-400">Tiada rekod dijumpai.</td></tr>';
+                        loading.classList.add('hidden');
+                        return;
+                    }
 
-                let html = '';
-                // Mula dari row 0 (Jika sheet anda ada header, tukar row.slice(1))
-                rows.forEach((row, index) => {
-                    const nama = row.c[0] ? row.c[0].v : '-';
-                    const kelas = row.c[1] ? row.c[1].v : '-';
-                    const unit = row.c[2] ? row.c[2].v : '-';
+                    let html = '';
+                    
+                    // Kita mula dari indeks 1 (menganggap baris 0 adalah tajuk/header di dalam Google Sheet)
+                    // Jika tiada header di dalam sheet, tukar 'let i = 1' kepada 'let i = 0'
+                    for(let i = 1; i < data.length; i++) {
+                        const row = data[i];
+                        const nama = row[0] ? row[0] : '-';
+                        const kelas = row[1] ? row[1] : '-';
+                        const unit = row[2] ? row[2] : '-';
 
-                    html += `
-                        <tr class="border-b border-gray-700 hover:bg-yellow-500/10 transition duration-150">
-                            <td class="p-4 font-mono text-yellow-500">${index + 1}</td>
-                            <td class="p-4 font-black uppercase">${nama}</td>
-                            <td class="p-4">${kelas}</td>
-                            <td class="p-4"><span class="bg-gray-800 px-3 py-1 rounded text-yellow-400 border border-yellow-500/50">${unit}</span></td>
-                        </tr>
-                    `;
-                });
+                        html += `
+                            <tr class="border-b border-gray-700 hover:bg-yellow-500/10 transition duration-150">
+                                <td class="p-4 font-mono text-yellow-500">${i}</td>
+                                <td class="p-4 font-black uppercase text-white">${nama}</td>
+                                <td class="p-4 text-gray-300">${kelas}</td>
+                                <td class="p-4"><span class="bg-gray-800 px-3 py-1 rounded text-yellow-400 border border-yellow-500/50 uppercase text-xs">${unit}</span></td>
+                            </tr>
+                        `;
+                    }
 
-                tableBody.innerHTML = html;
-            } catch (error) {
-                tableBody.innerHTML = '<tr><td colspan="4" class="p-10 text-center text-red-500 font-bold">RALAT: Pastikan fail Google Sheet telah di-set kepada "Public/Anyone with link".</td></tr>';
-                console.error("Error:", error);
-            }
-            loading.classList.add('hidden');
+                    tableBody.innerHTML = html;
+                    loading.classList.add('hidden');
+                },
+                error: function(error) {
+                    tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-500 font-bold">Ralat membaca fail: ${error.message}</td></tr>`;
+                    loading.classList.add('hidden');
+                }
+            });
         }
 
         function filterTable() {
             let input = document.getElementById("searchInput").value.toUpperCase();
             let tr = document.getElementById("tableBody").getElementsByTagName("tr");
-            for (let i =
+            for (let i = 0; i < tr.length; i++) {
+                let td = tr[i].getElementsByTagName("td")[1]; // Mencari dalam lajur Nama (Indeks 1)
+                if (td) {
+                    let textValue = td.textContent || td.innerText;
+                    tr[i].style.display = textValue.toUpperCase().indexOf(input) > -1 ? "" : "none";
+                }
+            }
+        }
+    </script>
+</body>
+</html>
