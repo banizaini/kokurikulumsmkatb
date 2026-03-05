@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Semakan Kokurikulum SMKATB</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Roboto:wght@400;900&display=swap" rel="stylesheet">
     
     <style>
@@ -30,11 +29,178 @@
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <button onclick="fetchData('Beruniform')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🛡️ Badan Beruniform</button>
-        <button onclick="fetchData('Kelab')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🧠 Kelab & Persatuan</button>
-        <button onclick="fetchData('Sukan')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">⚽ Sukan & Permainan</button>
-        <button onclick="fetchData('RumahSukan')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🏠 Rumah Sukan</button>
+        <button onclick="fetchData('Beruniform')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg opacity-50 cursor-not-allowed" title="Sila update link nanti">🛡️ Badan Beruniform</button>
+        <button onclick="fetchData('Kelab')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg opacity-50 cursor-not-allowed" title="Sila update link nanti">🧠 Kelab & Persatuan</button>
+        <button onclick="fetchData('Sukan')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg opacity-50 cursor-not-allowed" title="Sila update link nanti">⚽ Sukan & Permainan</button>
+        <button onclick="fetchData('RumahSukan')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg ring-4 ring-white">🏠 Rumah Sukan</button>
     </div>
 
     <div id="unitMenuContainer" class="hidden max-w-5xl mx-auto mb-8 text-center">
-        <h3 class="text-yellow-500 font-bold mb-4 tracking-widest uppercase">Pilih K
+        <h3 class="text-yellow-500 font-bold mb-4 tracking-widest uppercase">Pilih Kumpulan Untuk Paparan:</h3>
+        <div id="unitMenu" class="flex flex-wrap justify-center gap-3"></div>
+    </div>
+
+    <div id="loading" class="hidden text-center mb-5">
+        <div class="inline-block p-3 bg-yellow-500 text-black font-bold animate-pulse rounded">MEMUATKAN DATA DARI GOOGLE...</div>
+    </div>
+
+    <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl max-w-6xl mx-auto">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left" id="memberTable">
+                <thead>
+                    <tr class="table-header poster-font text-lg italic">
+                        <th class="p-4 w-16 text-center">BIL</th>
+                        <th class="p-4 w-32">NO KP</th>
+                        <th class="p-4">NAMA PENUH</th>
+                        <th class="p-4 w-32 text-center">KELAS</th>
+                        <th class="p-4 w-48 text-center">UNIT/RUMAH</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" class="text-gray-100 italic">
+                    <tr>
+                        <td colspan="5" class="p-10 text-center opacity-50 font-bold tracking-widest">SILA TEKAN BUTANG RUMAH SUKAN</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Susunan Lajur: 0=NOKP, 1=NAMA, 2=KELAS, 3=RUMAH SUKAN
+        const KOLUM_NOKP = 0;   
+        const KOLUM_NAMA = 1;   
+        const KOLUM_KELAS = 2;  
+        const KOLUM_UNIT = 3;   
+
+        const SHEET_LINKS = {
+            'Beruniform': '', // Kosongkan dulu supaya tak ralat
+            'Kelab': '',
+            'Sukan': '',
+            // Link peribadi Sir Syai
+            'RumahSukan': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSVhVtQlErfVCxdC0Bprsa68dw1StbZHSwbwpJKJf-V4GGm8X95uHAVtD-O6t3lqcAEeMwhY_mctRMf/pub?gid=0&single=true&output=csv'
+        };
+
+        let currentSheetData = []; 
+
+        async function fetchData(category) {
+            const loading = document.getElementById('loading');
+            const tableBody = document.getElementById('tableBody');
+            const unitMenuContainer = document.getElementById('unitMenuContainer');
+            const unitMenu = document.getElementById('unitMenu');
+            
+            const csvUrl = SHEET_LINKS[category];
+
+            if (!csvUrl) {
+                alert("Link Google Sheet belum dimasukkan untuk kategori ini.");
+                return;
+            }
+
+            loading.classList.remove('hidden');
+            unitMenuContainer.classList.add('hidden');
+            tableBody.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-yellow-400">Sedang menarik data...</td></tr>';
+
+            try {
+                // Menggunakan Fetch API secara terus (tanpa PapaParse)
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error("Gagal menyambung ke Google Sheets.");
+                
+                const csvText = await response.text();
+                
+                // Pecahkan CSV mengikut baris (Enter)
+                const rows = csvText.split(/\r?\n/);
+                
+                currentSheetData = [];
+                
+                // Pecahkan setiap baris mengikut koma
+                rows.forEach(row => {
+                    // Carian koma asas (andaikan tiada koma di dalam nama murid)
+                    const cols = row.split(','); 
+                    if(cols.length >= 4) {
+                        currentSheetData.push(cols);
+                    }
+                });
+
+                if(currentSheetData.length <= 1) {
+                    tableBody.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-red-400">Fail dapat dibaca, tetapi tiada rekod murid.</td></tr>';
+                    loading.classList.add('hidden');
+                    return;
+                }
+
+                let uniqueUnits = [];
+                
+                // Mula dari i=1 untuk abaikan Tajuk
+                for(let i = 1; i < currentSheetData.length; i++) {
+                    let unitName = currentSheetData[i][KOLUM_UNIT]; 
+                    if(unitName) {
+                        unitName = unitName.replace(/"/g, '').trim().toUpperCase(); // Buang tanda quote kalau ada
+                        if(!uniqueUnits.includes(unitName) && unitName !== "") {
+                            uniqueUnits.push(unitName);
+                        }
+                    }
+                }
+
+                if(uniqueUnits.length === 0) {
+                    tableBody.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-red-500 font-bold">RALAT: Tiada nama Rumah Sukan dikesan.</td></tr>`;
+                    loading.classList.add('hidden');
+                    return;
+                }
+
+                uniqueUnits.sort();
+
+                let menuHtml = '';
+                uniqueUnits.forEach(unit => {
+                    let safeId = unit.replace(/[^a-zA-Z0-9]/g, '_'); 
+                    menuHtml += `<button id="btn_${safeId}" onclick="showUnitData('${unit.replace(/'/g, "\\'")}', 'btn_${safeId}')" 
+                                 class="unit-btn px-5 py-2 rounded-full border border-yellow-500 text-yellow-500 font-bold uppercase text-sm cursor-pointer shadow-md hover:shadow-lg">
+                                 ${unit}
+                                 </button>`;
+                });
+
+                unitMenu.innerHTML = menuHtml;
+                unitMenuContainer.classList.remove('hidden');
+                loading.classList.add('hidden');
+                
+                tableBody.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-yellow-500 font-bold tracking-widest uppercase">Pilih butang unit di atas.</td></tr>';
+
+            } catch (error) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-red-500 font-bold">Ralat: ${error.message}</td></tr>`;
+                loading.classList.add('hidden');
+                console.error(error);
+            }
+        }
+
+        function showUnitData(selectedUnit, buttonId) {
+            const tableBody = document.getElementById('tableBody');
+            let html = '';
+            let counter = 1;
+
+            document.querySelectorAll('.unit-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(buttonId).classList.add('active');
+
+            for(let i = 1; i < currentSheetData.length; i++) {
+                const row = currentSheetData[i];
+                let unit = row[KOLUM_UNIT] ? row[KOLUM_UNIT].replace(/"/g, '').trim().toUpperCase() : '';
+
+                if(unit === selectedUnit) {
+                    const nokp = row[KOLUM_NOKP] ? row[KOLUM_NOKP].replace(/"/g, '').trim() : '-';
+                    const nama = row[KOLUM_NAMA] ? row[KOLUM_NAMA].replace(/"/g, '').trim() : '-';
+                    const kelas = row[KOLUM_KELAS] ? row[KOLUM_KELAS].replace(/"/g, '').trim() : '-';
+
+                    html += `
+                        <tr class="border-b border-gray-700 hover:bg-yellow-500/20 transition duration-150">
+                            <td class="p-4 font-mono text-yellow-500 text-center">${counter}</td>
+                            <td class="p-4 font-mono text-gray-300 tracking-wider">${nokp}</td>
+                            <td class="p-4 font-black uppercase text-white">${nama}</td>
+                            <td class="p-4 text-gray-300 text-center">${kelas}</td>
+                            <td class="p-4 text-center"><span class="bg-gray-800 px-3 py-1 rounded text-yellow-400 border border-yellow-500/50 uppercase text-xs tracking-wider">${unit}</span></td>
+                        </tr>
+                    `;
+                    counter++;
+                }
+            }
+
+            tableBody.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
