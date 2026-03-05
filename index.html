@@ -33,11 +33,11 @@
         <button onclick="fetchData('Beruniform')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🛡️ Badan Beruniform</button>
         <button onclick="fetchData('Kelab')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🧠 Kelab & Persatuan</button>
         <button onclick="fetchData('Sukan')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">⚽ Sukan & Permainan</button>
-        <button onclick="fetchData('RumahSukan')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg ring-4 ring-white">🏠 Rumah Sukan</button>
+        <button onclick="fetchData('RumahSukan')" class="btn-gradient p-6 rounded-xl poster-font text-xl shadow-lg">🏠 Rumah Sukan</button>
     </div>
 
     <div id="unitMenuContainer" class="hidden max-w-5xl mx-auto mb-8 text-center">
-        <h3 class="text-yellow-500 font-bold mb-4 tracking-widest uppercase">Pilih Unit Untuk Paparan:</h3>
+        <h3 class="text-yellow-500 font-bold mb-4 tracking-widest uppercase">Pilih Kumpulan Untuk Paparan:</h3>
         <div id="unitMenu" class="flex flex-wrap justify-center gap-3"></div>
     </div>
 
@@ -51,14 +51,15 @@
                 <thead>
                     <tr class="table-header poster-font text-lg italic">
                         <th class="p-4 w-16 text-center">BIL</th>
+                        <th class="p-4 w-32">NO KP</th>
                         <th class="p-4">NAMA PENUH</th>
                         <th class="p-4 w-32 text-center">KELAS</th>
-                        <th class="p-4 w-48 text-center">UNIT</th>
+                        <th class="p-4 w-48 text-center">UNIT/RUMAH</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody" class="text-gray-100 italic">
                     <tr>
-                        <td colspan="4" class="p-10 text-center opacity-50 font-bold tracking-widest">SILA PILIH KATEGORI DI ATAS (CUBA TEKAN RUMAH SUKAN)</td>
+                        <td colspan="5" class="p-10 text-center opacity-50 font-bold tracking-widest">SILA PILIH KATEGORI DI ATAS (CUBA TEKAN RUMAH SUKAN)</td>
                     </tr>
                 </tbody>
             </table>
@@ -70,5 +71,43 @@
             'Beruniform': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR5qD2LhAVY_gkp21qV6VZ8CG4WjcmTDOlJ10Cj1TbuVl3PHsSYhlmBskPY2TU3KA/pub?output=csv',
             'Kelab': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9WaQcM0HKQYoTF4gUYBn2OZyGTWEEpVXOWCF1SFLmh7rbdA52JYcoY3fF-HyYfg/pub?output=csv',
             'Sukan': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSE062ycwmtzTnXqs57QGb_QH3C8EsFFGs3VbrpBapaNk_H5E2g6jsveBoSMrhIXg/pub?output=csv',
-            // Link Rumah Sukan yang Uncle berikan
-            'RumahSukan': '
+            'RumahSukan': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSoP03gP_u4CstSfD8NCpBMeAhbEMFhyJMYe0nTFGyWZfwfOA9myf-eq45T9AcEZnyEsa-eOFMjm1O2/pub?output=csv'
+        };
+
+        let currentSheetData = []; 
+        let globalUnitCol = ""; // Simpan nama lajur (contoh: RUMAH SUKAN) untuk rujukan fungsi paparan
+
+        function fetchData(category) {
+            const loading = document.getElementById('loading');
+            const tableBody = document.getElementById('tableBody');
+            const unitMenuContainer = document.getElementById('unitMenuContainer');
+            const unitMenu = document.getElementById('unitMenu');
+            
+            loading.classList.remove('hidden');
+            unitMenuContainer.classList.add('hidden');
+            tableBody.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-yellow-400">Sedang menyusun senarai...</td></tr>';
+
+            const csvUrl = SHEET_LINKS[category];
+
+            Papa.parse(csvUrl, {
+                download: true,
+                header: true, 
+                skipEmptyLines: true,
+                transformHeader: function(header) {
+                    // Buang 'space' tambahan dan jadikan huruf besar supaya senang detect
+                    return header.trim().toUpperCase();
+                },
+                complete: function(results) {
+                    currentSheetData = results.data;
+                    
+                    if(currentSheetData.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-red-400">Fail dapat dibaca, tetapi tiada rekod murid dijumpai.</td></tr>';
+                        loading.classList.add('hidden');
+                        return;
+                    }
+
+                    // Sistem bijak mengesan lajur yang patut dijadikan butang
+                    let headers = Object.keys(currentSheetData[0]);
+                    
+                    // Ia akan cari mana-mana lajur yang bernama seperti di bawah
+                    globalUnitCol = headers.find(h => ["RUMAH SU
