@@ -59,7 +59,7 @@
                 </thead>
                 <tbody id="tableBody" class="text-gray-100 italic">
                     <tr>
-                        <td colspan="5" class="p-10 text-center opacity-50 font-bold tracking-widest">SILA PILIH KATEGORI DI ATAS (CUBA TEKAN RUMAH SUKAN)</td>
+                        <td colspan="5" class="p-10 text-center opacity-50 font-bold tracking-widest">SILA PILIH KATEGORI DI ATAS</td>
                     </tr>
                 </tbody>
             </table>
@@ -67,7 +67,7 @@
     </div>
 
     <script>
-        // Susunan Lajur yang Uncle berikan
+        // Susunan Lajur yang Uncle tetapkan sebelum ini (Lajur A, B, C, D)
         const KOLUM_NOKP = 0;   // Lajur A
         const KOLUM_NAMA = 1;   // Lajur B
         const KOLUM_KELAS = 2;  // Lajur C
@@ -76,115 +76,4 @@
         const SHEET_LINKS = {
             'Beruniform': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR5qD2LhAVY_gkp21qV6VZ8CG4WjcmTDOlJ10Cj1TbuVl3PHsSYhlmBskPY2TU3KA/pub?output=csv',
             'Kelab': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9WaQcM0HKQYoTF4gUYBn2OZyGTWEEpVXOWCF1SFLmh7rbdA52JYcoY3fF-HyYfg/pub?output=csv',
-            'Sukan': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSE062ycwmtzTnXqs57QGb_QH3C8EsFFGs3VbrpBapaNk_H5E2g6jsveBoSMrhIXg/pub?output=csv',
-            'RumahSukan': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSoP03gP_u4CstSfD8NCpBMeAhbEMFhyJMYe0nTFGyWZfwfOA9myf-eq45T9AcEZnyEsa-eOFMjm1O2/pub?output=csv'
-        };
-
-        let currentSheetData = []; 
-
-        function fetchData(category) {
-            const loading = document.getElementById('loading');
-            const tableBody = document.getElementById('tableBody');
-            const unitMenuContainer = document.getElementById('unitMenuContainer');
-            const unitMenu = document.getElementById('unitMenu');
-            
-            loading.classList.remove('hidden');
-            unitMenuContainer.classList.add('hidden');
-            tableBody.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-yellow-400">Sedang menyusun senarai...</td></tr>';
-
-            const csvUrl = SHEET_LINKS[category];
-
-            Papa.parse(csvUrl, {
-                download: true,
-                header: false, // Kita matikan pencarian tajuk. Kita baca kotak secara terus!
-                skipEmptyLines: true,
-                complete: function(results) {
-                    currentSheetData = results.data;
-                    
-                    // Kalau cuma ada tajuk sahaja atau kosong
-                    if(currentSheetData.length <= 1) {
-                        tableBody.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-red-400">Fail dapat dibaca, tetapi tiada rekod murid dijumpai.</td></tr>';
-                        loading.classList.add('hidden');
-                        return;
-                    }
-
-                    let uniqueUnits = [];
-                    
-                    // Mula dari i=1 sebab kita nak abaikan Baris 1 (Tajuk: NO KP, NAMA, KELAS, RUMAH SUKAN)
-                    for(let i = 1; i < currentSheetData.length; i++) {
-                        let unitName = currentSheetData[i][KOLUM_UNIT]; // Terus ambil dari Lajur D
-                        if(unitName) {
-                            unitName = unitName.trim().toUpperCase();
-                            if(!uniqueUnits.includes(unitName) && unitName !== "") {
-                                uniqueUnits.push(unitName);
-                            }
-                        }
-                    }
-
-                    if(uniqueUnits.length === 0) {
-                        tableBody.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-red-500 font-bold">RALAT: Sistem tidak jumpa sebarang nama Rumah Sukan di Lajur D.</td></tr>`;
-                        loading.classList.add('hidden');
-                        return;
-                    }
-
-                    uniqueUnits.sort();
-
-                    let menuHtml = '';
-                    uniqueUnits.forEach(unit => {
-                        let safeId = unit.replace(/[^a-zA-Z0-9]/g, '_'); 
-                        menuHtml += `<button id="btn_${safeId}" onclick="showUnitData('${unit.replace(/'/g, "\\'")}', 'btn_${safeId}')" 
-                                     class="unit-btn px-5 py-2 rounded-full border border-yellow-500 text-yellow-500 font-bold uppercase text-sm cursor-pointer shadow-md hover:shadow-lg">
-                                     ${unit}
-                                     </button>`;
-                    });
-
-                    unitMenu.innerHTML = menuHtml;
-                    unitMenuContainer.classList.remove('hidden');
-                    loading.classList.add('hidden');
-                    
-                    tableBody.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-yellow-500 font-bold tracking-widest uppercase">Sila klik pada mana-mana butang di atas.</td></tr>';
-                },
-                error: function(error) {
-                    tableBody.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-red-500 font-bold">Ralat membaca fail: ${error.message}</td></tr>`;
-                    loading.classList.add('hidden');
-                }
-            });
-        }
-
-        function showUnitData(selectedUnit, buttonId) {
-            const tableBody = document.getElementById('tableBody');
-            let html = '';
-            let counter = 1;
-
-            document.querySelectorAll('.unit-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(buttonId).classList.add('active');
-
-            // Mula dari i=1 untuk abaikan tajuk
-            for(let i = 1; i < currentSheetData.length; i++) {
-                const row = currentSheetData[i];
-                let unit = row[KOLUM_UNIT] ? row[KOLUM_UNIT].trim().toUpperCase() : '';
-
-                if(unit === selectedUnit) {
-                    // Ambil data terus dari indeks lajur yang Uncle bagi
-                    const nokp = row[KOLUM_NOKP] ? row[KOLUM_NOKP].trim() : '-';
-                    const nama = row[KOLUM_NAMA] ? row[KOLUM_NAMA].trim() : '-';
-                    const kelas = row[KOLUM_KELAS] ? row[KOLUM_KELAS].trim() : '-';
-
-                    html += `
-                        <tr class="border-b border-gray-700 hover:bg-yellow-500/20 transition duration-150">
-                            <td class="p-4 font-mono text-yellow-500 text-center">${counter}</td>
-                            <td class="p-4 font-mono text-gray-300 tracking-wider">${nokp}</td>
-                            <td class="p-4 font-black uppercase text-white">${nama}</td>
-                            <td class="p-4 text-gray-300 text-center">${kelas}</td>
-                            <td class="p-4 text-center"><span class="bg-gray-800 px-3 py-1 rounded text-yellow-400 border border-yellow-500/50 uppercase text-xs tracking-wider">${unit}</span></td>
-                        </tr>
-                    `;
-                    counter++;
-                }
-            }
-
-            tableBody.innerHTML = html;
-        }
-    </script>
-</body>
-</html>
+            'Sukan': '
